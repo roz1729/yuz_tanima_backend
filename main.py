@@ -1,4 +1,4 @@
-/*from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File
 from pydantic import BaseModel
 from enum import Enum
 from database import get_connection, get_workers, save_attendance, save_face_embedding, get_all_embeddings
