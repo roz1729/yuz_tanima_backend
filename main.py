@@ -12,6 +12,7 @@ app = FastAPI()
 
 face_app = FaceAnalysis(name='buffalo_l')
 face_app.prepare(ctx_id=-1, det_size=(640, 640))
+#face_app.prepare(ctx_id=-1, det_size=(320, 320))
 
 
 class EventType(str, Enum):
@@ -35,6 +36,8 @@ class AttendanceRequest(BaseModel):
 @app.post("/enroll/{user_id}")
 async def yuz_kaydet(user_id: int, photos: List[UploadFile]):
     embeddings = []
+    # embedding = faces[0].embedding
+    # embedding = embedding / np.linalg.norm(embedding)
 
     for photo in photos:
         contents = await photo.read()
@@ -50,6 +53,7 @@ async def yuz_kaydet(user_id: int, photos: List[UploadFile]):
 
     avg_embedding = np.mean(embeddings, axis=0)
     save_face_embedding(user_id, avg_embedding)
+
 
     return {
         "mesaj": "yüz kaydedildi",
@@ -85,7 +89,10 @@ async def yuz_tani(photo: UploadFile):
         return {"tanindi": False, "mesaj": "Yüz tespit edilemedi"}
 
     embedding = faces[0].embedding
+    #embedding = faces[0].embedding
+    #embedding = embedding / np.linalg.norm(embedding)
 
+    # cached_embeddings = []
     kayitlar = get_all_embeddings()
     if len(kayitlar) == 0:
         return {"tanindi": False, "mesaj": "Kayıtlı yüz yok"}
@@ -97,6 +104,7 @@ async def yuz_tani(photo: UploadFile):
         db_embedding = np.array(kayit["embedding"])
         skor = float(np.dot(embedding, db_embedding) /
                     (np.linalg.norm(embedding) * np.linalg.norm(db_embedding)))
+        # skor = float(np.dot(embedding, db_embedding))
         if skor > en_yuksek_skor:
             en_yuksek_skor = skor
             en_yakin_kisi = kayit

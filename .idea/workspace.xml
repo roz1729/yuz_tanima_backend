@@ -5,21 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="158ffc9d-eb37-4a78-82e3-fa3ab3988177" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.env" beforeDir="false" afterPath="$PROJECT_DIR$/.env" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/yuz-tanima-backend.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/yuz-tanima-backend.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Procfile" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/database.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/harry.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/harry2.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/just.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/justi.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/justin2.jpeg" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/test2.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/test_insightface.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
