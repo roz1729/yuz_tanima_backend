@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile
+/*from fastapi import FastAPI, UploadFile, File
 from pydantic import BaseModel
 from enum import Enum
 from database import get_connection, get_workers, save_attendance, save_face_embedding, get_all_embeddings
@@ -7,35 +7,12 @@ import cv2
 from insightface.app import FaceAnalysis
 from typing import List
 
+
 app = FastAPI()
 
-# 🔥 DAHA HIZLI MODEL AYARI
 face_app = FaceAnalysis(name='buffalo_l')
-face_app.prepare(ctx_id=-1, det_size=(320, 320))
-
-# 🔥 CACHE (RAM)
-cached_embeddings = []
-
-# 🔥 UYGULAMA AÇILINCA EMBEDDINGLERİ YÜKLE
-@app.on_event("startup")
-def load_embeddings():
-    global cached_embeddings
-    cached_embeddings = []
-
-    kayitlar = get_all_embeddings()
-    for k in kayitlar:
-        emb = np.array(k["embedding"])
-
-        # normalize
-        emb = emb / np.linalg.norm(emb)
-
-        cached_embeddings.append({
-            "id": k["id"],
-            "full_name": k["full_name"],
-            "embedding": emb
-        })
-
-    print(f"{len(cached_embeddings)} kişi cache'e yüklendi")
+face_app.prepare(ctx_id=-1, det_size=(640, 640))
+#face_app.prepare(ctx_id=-1, det_size=(320, 320))
 
 
 class EventType(str, Enum):
@@ -56,45 +33,27 @@ class AttendanceRequest(BaseModel):
     description: str = None
 
 
-# 🔥 YÜZ KAYDET (ENROLL)
 @app.post("/enroll/{user_id}")
 async def yuz_kaydet(user_id: int, photos: List[UploadFile]):
     embeddings = []
+    # embedding = faces[0].embedding
+    # embedding = embedding / np.linalg.norm(embedding)
 
     for photo in photos:
         contents = await photo.read()
         img_array = np.frombuffer(contents, np.uint8)
         img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
 
-        # 🔥 küçült (çok önemli)
-        img = cv2.resize(img, (320, 240))
-
         faces = face_app.get(img)
-
-        if len(faces) == 1:
-            face = faces[0]
-
-            # 🔥 kalite kontrol
-            if face.det_score > 0.6:
-                emb = face.embedding
-                emb = emb / np.linalg.norm(emb)
-                embeddings.append(emb)
+        if len(faces) > 0:
+            embeddings.append(faces[0].embedding)
 
     if len(embeddings) < 3:
-        return {"hata": "en az 3 kaliteli yüz fotoğrafı gerekli"}
+        return {"hata": "en az 3 geçerli yüz fotoğrafı gerekli"}
 
-    # 🔥 ortalama embedding
     avg_embedding = np.mean(embeddings, axis=0)
-    avg_embedding = avg_embedding / np.linalg.norm(avg_embedding)
-
     save_face_embedding(user_id, avg_embedding)
 
-    # 🔥 cache'e de ekle (anında tanısın)
-    cached_embeddings.append({
-        "id": user_id,
-        "full_name": "Yeni Kullanıcı",
-        "embedding": avg_embedding
-    })
 
     return {
         "mesaj": "yüz kaydedildi",
@@ -118,42 +77,39 @@ def kayit_ekle(veri: AttendanceRequest):
     return {"mesaj": "kayıt veritabanına kaydedildi."}
 
 
-# 🔥 YÜZ TANIMA (FAST)
+
 @app.post("/recognize")
 async def yuz_tani(photo: UploadFile):
     contents = await photo.read()
     img_array = np.frombuffer(contents, np.uint8)
     img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
 
-    # 🔥 küçült
-    img = cv2.resize(img, (320, 240))
-
     faces = face_app.get(img)
-
     if len(faces) == 0:
         return {"tanindi": False, "mesaj": "Yüz tespit edilemedi"}
 
     embedding = faces[0].embedding
-    embedding = embedding / np.linalg.norm(embedding)
+    #embedding = faces[0].embedding
+    #embedding = embedding / np.linalg.norm(embedding)
 
-    if len(cached_embeddings) == 0:
+    # cached_embeddings = []
+    kayitlar = get_all_embeddings()
+    if len(kayitlar) == 0:
         return {"tanindi": False, "mesaj": "Kayıtlı yüz yok"}
 
     en_yuksek_skor = -1
     en_yakin_kisi = None
 
-    # 🔥 HIZLI KARŞILAŞTIRMA
-    for kayit in cached_embeddings:
-        db_embedding = kayit["embedding"]
-
-        skor = float(np.dot(embedding, db_embedding))
-
+    for kayit in kayitlar:
+        db_embedding = np.array(kayit["embedding"])
+        skor = float(np.dot(embedding, db_embedding) /
+                    (np.linalg.norm(embedding) * np.linalg.norm(db_embedding)))
+        # skor = float(np.dot(embedding, db_embedding))
         if skor > en_yuksek_skor:
             en_yuksek_skor = skor
             en_yakin_kisi = kayit
 
-    # 🔥 DAHA DOĞRU THRESHOLD
-    if en_yuksek_skor > 0.5:
+    if en_yuksek_skor > 0.4:
         return {
             "tanindi": True,
             "id": en_yakin_kisi["id"],
@@ -161,34 +117,25 @@ async def yuz_tani(photo: UploadFile):
             "skor": round(en_yuksek_skor, 3)
         }
     else:
-        return {
-            "tanindi": False,
-            "mesaj": f"Tanınamadı (skor: {round(en_yuksek_skor, 3)})"
-        }
+        return {"tanindi": False, "mesaj": "Tanınamadı"}
+
+
 
 
 @app.delete("/enroll/{user_id}")
 def yuz_sil(user_id: int):
-    global cached_embeddings
-
     conn = get_connection()
     cursor = conn.cursor()
-
     cursor.execute(
         'UPDATE "Users" SET "FaceEmbedding" = NULL WHERE "Id" = %s',
         (user_id,)
     )
-
     conn.commit()
     cursor.close()
     conn.close()
-
-    # 🔥 cache'ten de sil
-    cached_embeddings = [
-        k for k in cached_embeddings if k["id"] != user_id
-    ]
-
     return {"mesaj": "Yüz silindi"}
 
-
 print(app.routes)
+
+
+
