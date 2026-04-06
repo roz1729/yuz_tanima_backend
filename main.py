@@ -1,19 +1,39 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile
 from pydantic import BaseModel
 from enum import Enum
-from database import get_connection, get_workers, save_attendance, save_face_embedding, get_all_embeddings
+from database import get_connection, get_workers, save_attendance, save_face_embedding, get_all_embeddings, init_pool, release_connection
 import numpy as np
 import cv2
 from insightface.app import FaceAnalysis
 from typing import List
 
-
 app = FastAPI()
 
-face_app = FaceAnalysis(name='buffalo_l')
-face_app.prepare(ctx_id=-1, det_size=(640, 640))
-#face_app.prepare(ctx_id=-1, det_size=(320, 320))
+# --- Daha hafif model, daha küçük det_size ---
+face_app = FaceAnalysis(name='buffalo_s')
+face_app.prepare(ctx_id=-1, det_size=(320, 320))
 
+# --- Global embedding cache ---
+embedding_cache: list = []
+
+
+def load_embedding_cache():
+    """Tüm embedding'leri DB'den çekip cache'e yükler."""
+    global embedding_cache
+    kayitlar = get_all_embeddings()
+    for kayit in kayitlar:
+        kayit["embedding"] = np.array(kayit["embedding"], dtype=np.float32)
+    embedding_cache = kayitlar
+    print(f"[Cache] {len(embedding_cache)} kişi yüklendi.")
+
+
+@app.on_event("startup")
+async def startup_event():
+    init_pool()
+    load_embedding_cache()
+
+
+# ─── Enum'lar ────────────────────────────────────────────────────────────────
 
 class EventType(str, Enum):
     giris = "giris"
@@ -33,30 +53,46 @@ class AttendanceRequest(BaseModel):
     description: str = None
 
 
+# ─── Yardımcı fonksiyon ───────────────────────────────────────────────────────
+
+def decode_image(contents: bytes):
+    """Byte → OpenCV görüntüsü. Büyük görüntüleri 640px genişliğe küçültür."""
+    img_array = np.frombuffer(contents, np.uint8)
+    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+    if img is None:
+        return None
+    h, w = img.shape[:2]
+    if w > 640:
+        scale = 640 / w
+        img = cv2.resize(img, (640, int(h * scale)), interpolation=cv2.INTER_AREA)
+    return img
+
+
+# ─── Endpoint'ler ─────────────────────────────────────────────────────────────
+
 @app.post("/enroll/{user_id}")
 async def yuz_kaydet(user_id: int, photos: List[UploadFile]):
     embeddings = []
-    # embedding = faces[0].embedding
-    # embedding = embedding / np.linalg.norm(embedding)
 
     for photo in photos:
         contents = await photo.read()
-        img_array = np.frombuffer(contents, np.uint8)
-        img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+        img = decode_image(contents)
+        if img is None:
+            continue
 
         faces = face_app.get(img)
         if len(faces) > 0:
             embeddings.append(faces[0].embedding)
 
     if len(embeddings) < 3:
-        return {"hata": "en az 3 geçerli yüz fotoğrafı gerekli"}
+        return {"hata": "En az 3 geçerli yüz fotoğrafı gerekli"}
 
     avg_embedding = np.mean(embeddings, axis=0)
     save_face_embedding(user_id, avg_embedding)
-
+    load_embedding_cache()  # Cache'i güncelle
 
     return {
-        "mesaj": "yüz kaydedildi",
+        "mesaj": "Yüz kaydedildi",
         "kullanilan_foto": len(embeddings)
     }
 
@@ -74,37 +110,33 @@ def kayit_ekle(veri: AttendanceRequest):
         shift=veri.shift,
         description=veri.description
     )
-    return {"mesaj": "kayıt veritabanına kaydedildi."}
-
+    return {"mesaj": "Kayıt veritabanına kaydedildi."}
 
 
 @app.post("/recognize")
 async def yuz_tani(photo: UploadFile):
     contents = await photo.read()
-    img_array = np.frombuffer(contents, np.uint8)
-    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+    img = decode_image(contents)
+    if img is None:
+        return {"tanindi": False, "mesaj": "Görüntü okunamadı"}
 
     faces = face_app.get(img)
     if len(faces) == 0:
         return {"tanindi": False, "mesaj": "Yüz tespit edilemedi"}
 
-    embedding = faces[0].embedding
-    #embedding = faces[0].embedding
-    #embedding = embedding / np.linalg.norm(embedding)
+    embedding = faces[0].embedding.astype(np.float32)
+    norm_e = np.linalg.norm(embedding)
 
-    # cached_embeddings = []
-    kayitlar = get_all_embeddings()
-    if len(kayitlar) == 0:
+    if len(embedding_cache) == 0:
         return {"tanindi": False, "mesaj": "Kayıtlı yüz yok"}
 
-    en_yuksek_skor = -1
+    en_yuksek_skor = -1.0
     en_yakin_kisi = None
 
-    for kayit in kayitlar:
-        db_embedding = np.array(kayit["embedding"])
-        skor = float(np.dot(embedding, db_embedding) /
-                    (np.linalg.norm(embedding) * np.linalg.norm(db_embedding)))
-        # skor = float(np.dot(embedding, db_embedding))
+    for kayit in embedding_cache:
+        db_emb = kayit["embedding"]
+        # Cosine similarity
+        skor = float(np.dot(embedding, db_emb) / (norm_e * np.linalg.norm(db_emb)))
         if skor > en_yuksek_skor:
             en_yuksek_skor = skor
             en_yakin_kisi = kayit
@@ -120,22 +152,26 @@ async def yuz_tani(photo: UploadFile):
         return {"tanindi": False, "mesaj": "Tanınamadı"}
 
 
-
-
 @app.delete("/enroll/{user_id}")
 def yuz_sil(user_id: int):
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        'UPDATE "Users" SET "FaceEmbedding" = NULL WHERE "Id" = %s',
-        (user_id,)
-    )
-    conn.commit()
-    cursor.close()
-    conn.close()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            'UPDATE "Users" SET "FaceEmbedding" = NULL WHERE "Id" = %s',
+            (user_id,)
+        )
+        conn.commit()
+        cursor.close()
+    finally:
+        release_connection(conn)
+
+    load_embedding_cache()  # Cache'i güncelle
     return {"mesaj": "Yüz silindi"}
 
-print(app.routes)
 
-
-
+@app.post("/reload-cache")
+def cache_yenile():
+    """Cache'i manuel yenilemek için (isteğe bağlı)."""
+    load_embedding_cache()
+    return {"mesaj": f"Cache yenilendi, {len(embedding_cache)} kişi yüklendi."}
