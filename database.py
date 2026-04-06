@@ -35,10 +35,10 @@ def get_workers():
 def save_attendance(user_id, event_type, shift, description):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(
-        'INSERT INTO "Attendances" ("UserId", "Type", "Shift", "Time", "IsLate", "LateReason") VALUES (%s, %s, %s, NOW(), %s, %s)',
-        (user_id, event_type, shift, False, description)
-    )
+ cursor.execute(
+    'INSERT INTO "Attendances" ("UserId", "Type", "Shift", "Time", "IsLate", "LateReason") VALUES (%s, %s, %s, NOW() AT TIME ZONE \'UTC\' AT TIME ZONE \'Europe/Istanbul\', %s, %s)',
+    (user_id, event_type, shift, False, description)
+)
     conn.commit()  # verileri kaydetme
     cursor.close()
     conn.close()
