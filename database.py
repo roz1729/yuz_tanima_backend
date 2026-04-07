@@ -47,7 +47,7 @@ def get_workers():
     return workers
 
 
-def save_attendance(user_id, event_type, shift, description):
+"""def save_attendance(user_id, event_type, shift, description):
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -55,6 +55,27 @@ def save_attendance(user_id, event_type, shift, description):
             'INSERT INTO "Attendances" ("UserId", "Type", "Shift", "Time", "IsLate", "LateReason") VALUES (%s, %s, %s, NOW(), %s, %s)',
             (user_id, event_type, shift, False, description)
         )
+        conn.commit()
+        cursor.close()
+    finally:
+        release_connection(conn)"""
+
+
+
+def save_attendance(user_id, event_type, shift, description, custom_time=None):
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        if custom_time:
+            cursor.execute(
+                'INSERT INTO "Attendances" ("UserId", "Type", "Shift", "Time", "IsLate", "LateReason") VALUES (%s, %s, %s, %s, %s, %s)',
+                (user_id, event_type, shift, custom_time, False, description)
+            )
+        else:
+            cursor.execute(
+                'INSERT INTO "Attendances" ("UserId", "Type", "Shift", "Time", "IsLate", "LateReason") VALUES (%s, %s, %s, NOW(), %s, %s)',
+                (user_id, event_type, shift, False, description)
+            )
         conn.commit()
         cursor.close()
     finally:
