@@ -6,6 +6,8 @@ import numpy as np
 import cv2
 from insightface.app import FaceAnalysis
 from typing import List
+from typing import Optional
+from datetime import datetime
 
 app = FastAPI()
 
