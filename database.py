@@ -73,7 +73,7 @@ def save_attendance(user_id, event_type, shift, description, custom_time=None):
         else:
             cursor.execute(
                 'INSERT INTO "Attendances" ("UserId", "Type", "Shift", "Time", "IsLate", "LateReason") '
-                'VALUES (%s, %s, %s, NOW() AT TIME ZONE \'Europe/Istanbul\', %s, %s)',
+                'VALUES (%s, %s, %s, NOW(), %s, %s)',
                 (user_id, event_type, shift, False, description)
             )
         conn.commit()
