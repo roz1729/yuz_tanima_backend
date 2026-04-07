@@ -67,7 +67,7 @@ def save_attendance(user_id, event_type, shift, description, custom_time=None):
         cursor = conn.cursor()
         if custom_time:
             cursor.execute(
-                'INSERT INTO "Attendances" ("UserId", "Type", "Shift", "Time", "IsLate", "LateReason") VALUES (%s, %s, %s, %s, %s, %s)',
+                'INSERT INTO "Attendances" ("UserId", "Type", "Shift", "Time", "IsLate", "LateReason") VALUES (%s, %s, %s, NOW(), %s, %s)',
                 (user_id, event_type, shift, custom_time, False, description)
             )
         else:
