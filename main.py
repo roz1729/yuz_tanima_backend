@@ -51,6 +51,7 @@ class AttendanceRequest(BaseModel):
     event_type: EventType
     shift: ShiftType
     description: str = None
+    custom_time: Optional[datetime] = None  # test için
 
 
 # ─── Yardımcı fonksiyon ───────────────────────────────────────────────────────
@@ -108,7 +109,8 @@ def kayit_ekle(veri: AttendanceRequest):
         user_id=veri.worker_id,
         event_type=veri.event_type,
         shift=veri.shift,
-        description=veri.description
+        description=veri.description,
+        custom_time=veri.custom_time
     )
     return {"mesaj": "Kayıt veritabanına kaydedildi."}
 
