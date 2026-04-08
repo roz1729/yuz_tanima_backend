@@ -97,7 +97,7 @@ def save_attendance(user_id, event_type, shift, description, custom_time=None):
         release_connection(conn)
 
 
-def save_face_embedding(user_id, embedding):
+"""def save_face_embedding(user_id, embedding):
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -108,7 +108,21 @@ def save_face_embedding(user_id, embedding):
         conn.commit()
         cursor.close()
     finally:
-        release_connection(conn)
+        release_connection(conn)"""
+
+def save_face_embedding(user_id, embedding):
+    conn = get_connection()
+    cursor = conn.cursor()
+    # Normalize et
+    norm = np.linalg.norm(embedding)
+    normalized = (embedding / norm).tolist()
+    cursor.execute(
+        'UPDATE "Users" SET "FaceEmbedding" = %s WHERE "Id" = %s',
+        (normalized, user_id)
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 
 def get_all_embeddings():
