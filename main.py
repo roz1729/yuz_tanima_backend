@@ -8,6 +8,7 @@ from insightface.app import FaceAnalysis
 from typing import List
 from typing import Optional
 from datetime import datetime
+import faiss
 
 app = FastAPI()
 
@@ -16,17 +17,55 @@ face_app = FaceAnalysis(name='buffalo_l')
 face_app.prepare(ctx_id=-1, det_size=(640, 640))
 
 # --- Global embedding cache ---
-embedding_cache: list = []
+"""embedding_cache: list = []"""
+embedding_cache = []
+faiss_index = None
+id_map = []
 
 
-def load_embedding_cache():
-    """Tüm embedding'leri DB'den çekip cache'e yükler."""
+"""def load_embedding_cache():
     global embedding_cache
     kayitlar = get_all_embeddings()
     for kayit in kayitlar:
         kayit["embedding"] = np.array(kayit["embedding"], dtype=np.float32)
     embedding_cache = kayitlar
-    print(f"[Cache] {len(embedding_cache)} kişi yüklendi.")
+    print(f"[Cache] {len(embedding_cache)} kişi yüklendi.")"""
+
+def load_embedding_cache():
+    global embedding_cache, faiss_index, id_map
+
+    kayitlar = get_all_embeddings()
+
+    embeddings = []
+    id_map = []
+
+    for kayit in kayitlar:
+        emb = np.array(kayit["embedding"], dtype=np.float32)
+        embeddings.append(emb)
+        id_map.append(kayit)
+
+    if len(embeddings) == 0:
+        return
+
+    embeddings = np.array(embeddings).astype("float32")
+
+    # Normalize (cosine için önemli)
+    faiss.normalize_L2(embeddings)
+
+    d = embeddings.shape[1]
+
+    faiss_index = faiss.IndexFlatIP(d)  # cosine similarity
+
+    faiss_index.add(embeddings)
+
+    embedding_cache = kayitlar
+
+    print(f"[FAISS] {len(embedding_cache)} kişi yüklendi.")
+
+
+
+
+
 
 
 @app.on_event("startup")
@@ -140,7 +179,7 @@ async def embedding_cikar(photo: UploadFile):
     return {"found": True, "embedding": embedding.tolist()}
 
 
-@app.post("/recognize")
+"""@app.post("/recognize")
 async def yuz_tani(photo: UploadFile):
     contents = await photo.read()
     img = decode_image(contents)
@@ -176,7 +215,48 @@ async def yuz_tani(photo: UploadFile):
             "skor": round(en_yuksek_skor, 3)
         }
     else:
-        return {"tanindi": False, "mesaj": "Tanınamadı"}
+        return {"tanindi": False, "mesaj": "Tanınamadı"}"""
+
+
+
+@app.post("/recognize")
+async def yuz_tani(photo: UploadFile):
+    global faiss_index, id_map
+
+    contents = await photo.read()
+    img = decode_image(contents)
+
+    if img is None:
+        return {"tanindi": False, "mesaj": "Görüntü okunamadı"}
+
+    faces = face_app.get(img)
+    if len(faces) == 0:
+        return {"tanindi": False, "mesaj": "Yüz tespit edilemedi"}
+
+    embedding = faces[0].embedding.astype(np.float32)
+
+    # Normalize
+    embedding = embedding / np.linalg.norm(embedding)
+    embedding = np.expand_dims(embedding, axis=0)
+
+    if faiss_index is None:
+        return {"tanindi": False, "mesaj": "Sistem hazır değil"}
+
+    D, I = faiss_index.search(embedding, k=1)
+
+    skor = float(D[0][0])
+    index = int(I[0][0])
+
+    if skor > 0.5:
+        kisi = id_map[index]
+        return {
+            "tanindi": True,
+            "id": kisi["id"],
+            "full_name": kisi["full_name"],
+            "skor": round(skor, 3)
+        }
+
+    return {"tanindi": False, "mesaj": "Tanınamadı"}
 
 
 @app.delete("/enroll/{user_id}")
