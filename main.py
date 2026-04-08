@@ -118,11 +118,8 @@ def kayit_ekle(veri: AttendanceRequest):
 
 
 
-
-# main.py'e ekle
 @app.get("/workers-with-embeddings")
 def isci_embedding_listesi():
-    """Android tablet embedding'leri buradan çekecek"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -134,16 +131,12 @@ def isci_embedding_listesi():
         cursor.close()
     finally:
         release_connection(conn)
-
-    workers = []
-    for row in rows:
-        workers.append({
-            "id": row[0],
-            "full_name": row[1],
-            "face_embedding": row[2]  # None olabilir, Android filtreler
-        })
-    return {"workers": workers}
-
+    return {
+        "workers": [
+            {"id": r[0], "full_name": r[1], "face_embedding": r[2]}
+            for r in rows
+        ]
+    }
 
 @app.post("/recognize")
 async def yuz_tani(photo: UploadFile):
