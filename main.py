@@ -125,6 +125,21 @@ def isci_embedding_listesi():
 
 
 
+@app.post("/embed")
+async def embedding_cikar(photo: UploadFile):
+    contents = await photo.read()
+    img_array = np.frombuffer(contents, np.uint8)
+    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+    
+    faces = face_app.get(img)
+    if len(faces) == 0:
+        return {"found": False}
+    
+    embedding = faces[0].embedding.tolist()
+    return {"found": True, "embedding": embedding}
+
+
+
 
 @app.post("/recognize")
 async def yuz_tani(photo: UploadFile):
