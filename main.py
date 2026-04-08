@@ -124,7 +124,6 @@ def isci_embedding_listesi():
     return {"workers": kayitlar}
 
 
-
 @app.post("/embed")
 async def embedding_cikar(photo: UploadFile):
     contents = await photo.read()
@@ -135,10 +134,10 @@ async def embedding_cikar(photo: UploadFile):
     if len(faces) == 0:
         return {"found": False}
     
-    embedding = faces[0].embedding.tolist()
-    return {"found": True, "embedding": embedding}
-
-
+    embedding = faces[0].embedding
+    # Normalize et
+    embedding = embedding / np.linalg.norm(embedding)
+    return {"found": True, "embedding": embedding.tolist()}
 
 
 @app.post("/recognize")
