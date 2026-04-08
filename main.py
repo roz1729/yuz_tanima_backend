@@ -117,6 +117,34 @@ def kayit_ekle(veri: AttendanceRequest):
     return {"mesaj": "Kayıt veritabanına kaydedildi."}
 
 
+
+
+# main.py'e ekle
+@app.get("/workers-with-embeddings")
+def isci_embedding_listesi():
+    """Android tablet embedding'leri buradan çekecek"""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            'SELECT "Id", "FullName", "FaceEmbedding" FROM "Users" '
+            'WHERE "IsDeleted" = false'
+        )
+        rows = cursor.fetchall()
+        cursor.close()
+    finally:
+        release_connection(conn)
+
+    workers = []
+    for row in rows:
+        workers.append({
+            "id": row[0],
+            "full_name": row[1],
+            "face_embedding": row[2]  # None olabilir, Android filtreler
+        })
+    return {"workers": workers}
+
+
 @app.post("/recognize")
 async def yuz_tani(photo: UploadFile):
     contents = await photo.read()
