@@ -118,25 +118,13 @@ def kayit_ekle(veri: AttendanceRequest):
 
 
 
-@app.get("/workers-with-embeddings")
+@app.get("/workers/embeddings")
 def isci_embedding_listesi():
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute(
-            'SELECT "Id", "FullName", "FaceEmbedding" FROM "Users" '
-            'WHERE "IsDeleted" = false'
-        )
-        rows = cursor.fetchall()
-        cursor.close()
-    finally:
-        release_connection(conn)
-    return {
-        "workers": [
-            {"id": r[0], "full_name": r[1], "face_embedding": r[2]}
-            for r in rows
-        ]
-    }
+    kayitlar = get_all_embeddings()
+    return {"workers": kayitlar}
+
+
+
 
 @app.post("/recognize")
 async def yuz_tani(photo: UploadFile):
