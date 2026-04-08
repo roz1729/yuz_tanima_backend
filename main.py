@@ -13,7 +13,7 @@ app = FastAPI()
 
 # --- Daha hafif model, daha küçük det_size ---
 face_app = FaceAnalysis(name='buffalo_l')
-face_app.prepare(ctx_id=-1, det_size=(640, 640))v
+face_app.prepare(ctx_id=-1, det_size=(640, 640))
 
 # --- Global embedding cache ---
 embedding_cache: list = []
