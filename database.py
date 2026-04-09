@@ -2,7 +2,7 @@ import psycopg2
 from psycopg2 import pool
 from dotenv import load_dotenv
 import os
-from datetime import datetime
+
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
