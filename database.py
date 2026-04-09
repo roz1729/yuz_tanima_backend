@@ -2,7 +2,7 @@ import psycopg2
 from psycopg2 import pool
 from dotenv import load_dotenv
 import os
-
+from datetime import datetime
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -85,7 +85,7 @@ def save_attendance(user_id, event_type, shift, description, custom_time=None):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        zaman = custom_time if custom_time else datetime.now()
+        zaman = custom_time if custom_time else datetime.utcnow()  # utcnow kullan
         cursor.execute(
             'INSERT INTO "Attendances" ("UserId", "Type", "Shift", "Time", "IsLate", "LateReason") '
             'VALUES (%s, %s, %s, %s, %s, %s)',
@@ -95,7 +95,6 @@ def save_attendance(user_id, event_type, shift, description, custom_time=None):
         cursor.close()
     finally:
         release_connection(conn)
-
 
 """def save_face_embedding(user_id, embedding):
     conn = get_connection()
