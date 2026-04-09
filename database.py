@@ -2,6 +2,7 @@ import psycopg2
 from psycopg2 import pool
 from dotenv import load_dotenv
 import os
+from numpy import np
 
 load_dotenv()
 
