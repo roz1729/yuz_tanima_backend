@@ -294,8 +294,7 @@ def vardiay_hesapla(giris_time: datetime, cikis_time: datetime) -> int:
 
     """def ortusme_saat(g, c, v_baslangic, v_bitis_offset_saat):
         """
-        v_baslangic: vardiya başlangıç saati (0-23)
-        v_bitis_offset_saat: vardiya süresi (hep 8 saat)
+     
         """
         vb = g.replace(hour=v_baslangic, minute=0, second=0, microsecond=0)
         vbt = vb + timedelta(hours=8)
