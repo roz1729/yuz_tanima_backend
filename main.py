@@ -112,6 +112,49 @@ def decode_image(contents: bytes):
 
 # ─── Endpoint'ler ─────────────────────────────────────────────────────────────
 
+
+
+
+@app.get("/last-action/{user_id}")
+def son_kayit(user_id: int):
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            'SELECT "Type", "Time" FROM "Attendances" '
+            'WHERE "UserId" = %s '
+            'ORDER BY "Time" DESC LIMIT 1',
+            (user_id,)
+        )
+        row = cursor.fetchone()
+        cursor.close()
+    finally:
+        release_connection(conn)
+
+    if row is None:
+        return {"nextAction": "giris"}
+
+    last_type = row[0]
+    last_time = row[1]
+
+    # Türkiye saatine çevir
+    from datetime import timezone, timedelta
+    turkey = timezone(timedelta(hours=3))
+    last_time_tr = last_time.astimezone(turkey).strftime("%H:%M")
+
+    next_action = "cikis" if last_type == "giris" else "giris"
+
+    return {
+        "nextAction": next_action,
+        "lastTime": last_time_tr,
+        "lastType": last_type
+    }
+
+
+
+
+
+
 @app.post("/enroll/{user_id}")
 async def yuz_kaydet(user_id: int, photos: List[UploadFile]):
     embeddings = []
