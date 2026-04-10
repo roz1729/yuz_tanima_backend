@@ -7,8 +7,8 @@ import cv2
 from insightface.app import FaceAnalysis
 from typing import List
 from typing import Optional
-from datetime import datetime
 import faiss
+from datetime import datetime, timezone, timedelta
 
 app = FastAPI()
 
