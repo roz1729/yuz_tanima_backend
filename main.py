@@ -294,9 +294,9 @@ def vardiay_hesapla(giris_time: datetime, cikis_time: datetime) -> int:
     # 1. Vardiya Gece:  00:00–08:00
     gece  = ortusme_saat(giris_tr, cikis_tr, 0, 8)
     # 2. Vardiya Sabah: 08:00–16:00
-    sabah = ortusme_saat(giris_tr, cikis_tr, 8, 8)
+    sabah = ortusme_saat(giris_tr, cikis_tr, 8, 16)
     # 3. Vardiya Akşam: 16:00–00:00
-    aksam = ortusme_saat(giris_tr, cikis_tr, 16, 8)
+    aksam = ortusme_saat(giris_tr, cikis_tr, 16, 0)
 
     if gece >= sabah and gece >= aksam:
         return 1  # Gece
