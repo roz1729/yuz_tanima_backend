@@ -198,10 +198,10 @@ def kayit_ekle(veri: AttendanceRequest):
     )
     return {"mesaj": "Kayıt veritabanına kaydedildi."}"""
 
+
 @app.post("/attendance")
 def kayit_ekle(veri: AttendanceRequest):
     if veri.event_type == "cikis":
-        # Son girişi bul ve vardiyayı hesapla
         conn = get_connection()
         try:
             cursor = conn.cursor()
@@ -220,11 +220,8 @@ def kayit_ekle(veri: AttendanceRequest):
             giris_id = row[0]
             giris_time = row[1]
             cikis_time = veri.custom_time if veri.custom_time else datetime.utcnow()
-            
-            # Vardiyayı hesapla
             hesaplanan_shift = vardiay_hesapla(giris_time, cikis_time)
-            
-            # Giriş satırının shift'ini güncelle
+
             conn = get_connection()
             try:
                 cursor = conn.cursor()
@@ -236,8 +233,7 @@ def kayit_ekle(veri: AttendanceRequest):
                 cursor.close()
             finally:
                 release_connection(conn)
-            
-            # Çıkışı kaydet
+
             save_attendance(
                 user_id=veri.worker_id,
                 event_type=veri.event_type,
@@ -246,7 +242,6 @@ def kayit_ekle(veri: AttendanceRequest):
                 custom_time=veri.custom_time
             )
         else:
-            # Eşleşen giriş yoksa direkt kaydet
             save_attendance(
                 user_id=veri.worker_id,
                 event_type=veri.event_type,
@@ -255,7 +250,6 @@ def kayit_ekle(veri: AttendanceRequest):
                 custom_time=veri.custom_time
             )
     else:
-        # Giriş kaydı — shift geçici olarak Kotlin'den geleni kullan
         save_attendance(
             user_id=veri.worker_id,
             event_type=veri.event_type,
@@ -263,58 +257,66 @@ def kayit_ekle(veri: AttendanceRequest):
             description=veri.description,
             custom_time=veri.custom_time
         )
-    
+
     return {"mesaj": "Kayıt veritabanına kaydedildi."}
 
 
 def vardiay_hesapla(giris_time: datetime, cikis_time: datetime) -> int:
     turkey = timezone(timedelta(hours=3))
-    
-    # timezone-aware değilse UTC olarak işaretle
+
     if giris_time.tzinfo is None:
         giris_time = giris_time.replace(tzinfo=timezone.utc)
     if cikis_time.tzinfo is None:
         cikis_time = cikis_time.replace(tzinfo=timezone.utc)
-    
+
     giris_tr = giris_time.astimezone(turkey)
     cikis_tr = cikis_time.astimezone(turkey)
-    
-    def ortusme(g, c, v_baslangic, v_bitis):
-        # Vardiya başlangıç ve bitiş saatlerini aynı güne göre ayarla
-        vb = g.replace(hour=v_baslangic, minute=0, second=0, microsecond=0)
-        vbt = g.replace(hour=v_bitis, minute=0, second=0, microsecond=0)
-        
-        # Gece yarısını geçen vardiyalar
-        if v_bitis <= v_baslangic:
-            vbt += timedelta(days=1)
-        
-        # Giriş saatten önce başlayan vardiya — bir gün geri al
+
+    def ortusme_saat(g, c, v_baslangic_saat, v_bitis_saat):
+        # Vardiya başlangıcını giriş günüyle hizala
+        vb = g.replace(hour=v_baslangic_saat, minute=0, second=0, microsecond=0)
+        # Bitiş bir sonraki gün mi?
+        if v_bitis_saat <= v_baslangic_saat:
+            vbt = vb + timedelta(hours=8)  # gece 00:00-08:00
+        else:
+            vbt = g.replace(hour=v_bitis_saat, minute=0, second=0, microsecond=0)
+
+        # Giriş vardiya başlangıcından önceyse bir gün geri al
         if vb > g:
             vb -= timedelta(days=1)
             vbt -= timedelta(days=1)
-        
+
         baslangic = max(g, vb)
         bitis = min(c, vbt)
-        
+
         if bitis > baslangic:
             return (bitis - baslangic).total_seconds() / 3600
         return 0.0
-    
-    sabah = ortusme(giris_tr, cikis_tr, 8, 16)
-    aksam = ortusme(giris_tr, cikis_tr, 16, 24)
-    gece  = ortusme(giris_tr, cikis_tr, 0, 8)
-    
+
+    sabah = ortusme_saat(giris_tr, cikis_tr, 8, 16)   # 08:00-16:00
+    aksam = ortusme_saat(giris_tr, cikis_tr, 16, 0)   # 16:00-00:00 (0 = gece yarısı)
+    gece  = ortusme_saat(giris_tr, cikis_tr, 0, 8)    # 00:00-08:00
+
+    # Akşam vardiyası özel durum: 16:00'dan gece yarısına kadar
+    # v_bitis_saat=0 olunca yukarıdaki fonksiyon yanlış hesaplar, elle düzeltelim
+    vb_aksam = giris_tr.replace(hour=16, minute=0, second=0, microsecond=0)
+    vbt_aksam = giris_tr.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    if vb_aksam > giris_tr:
+        vb_aksam -= timedelta(days=1)
+        vbt_aksam -= timedelta(days=1)
+    aksam = (min(cikis_tr, vbt_aksam) - max(giris_tr, vb_aksam)).total_seconds() / 3600
+    aksam = max(0.0, aksam)
+
     maksimum = max(sabah, aksam, gece)
-    
+
     if maksimum == 0:
-        return 2  # Varsayılan sabah
-    elif maksimum == sabah:
         return 2
-    elif maksimum == aksam:
+    elif sabah >= aksam and sabah >= gece:
+        return 2
+    elif aksam >= sabah and aksam >= gece:
         return 3
     else:
         return 1
-
 
 @app.get("/workers/embeddings")
 def isci_embedding_listesi():
