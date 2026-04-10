@@ -187,7 +187,7 @@ def isci_listesi():
     return {"workers": get_workers()}
 
 
-@app.post("/attendance")
+"""@app.post("/attendance")
 def kayit_ekle(veri: AttendanceRequest):
     save_attendance(
         user_id=veri.worker_id,
@@ -196,7 +196,132 @@ def kayit_ekle(veri: AttendanceRequest):
         description=veri.description,
         custom_time=veri.custom_time
     )
+    return {"mesaj": "Kayıt veritabanına kaydedildi."}"""
+
+@app.post("/attendance")
+def kayit_ekle(veri: AttendanceRequest):
+    if veri.event_type == "cikis":
+        # Son girişi bul ve vardiyayı hesapla
+        conn = get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                'SELECT "Id", "Time" FROM "Attendances" '
+                'WHERE "UserId" = %s AND "Type" = \'giris\' '
+                'ORDER BY "Time" DESC LIMIT 1',
+                (veri.worker_id,)
+            )
+            row = cursor.fetchone()
+            cursor.close()
+        finally:
+            release_connection(conn)
+
+        if row:
+            giris_id = row[0]
+            giris_time = row[1]
+            cikis_time = veri.custom_time if veri.custom_time else datetime.utcnow()
+            
+            # Vardiyayı hesapla
+            hesaplanan_shift = vardiay_hesapla(giris_time, cikis_time)
+            
+            # Giriş satırının shift'ini güncelle
+            conn = get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    'UPDATE "Attendances" SET "Shift" = %s WHERE "Id" = %s',
+                    (hesaplanan_shift, giris_id)
+                )
+                conn.commit()
+                cursor.close()
+            finally:
+                release_connection(conn)
+            
+            # Çıkışı kaydet
+            save_attendance(
+                user_id=veri.worker_id,
+                event_type=veri.event_type,
+                shift=hesaplanan_shift,
+                description=veri.description,
+                custom_time=veri.custom_time
+            )
+        else:
+            # Eşleşen giriş yoksa direkt kaydet
+            save_attendance(
+                user_id=veri.worker_id,
+                event_type=veri.event_type,
+                shift=veri.shift,
+                description=veri.description,
+                custom_time=veri.custom_time
+            )
+    else:
+        # Giriş kaydı — shift geçici olarak Kotlin'den geleni kullan
+        save_attendance(
+            user_id=veri.worker_id,
+            event_type=veri.event_type,
+            shift=veri.shift,
+            description=veri.description,
+            custom_time=veri.custom_time
+        )
+    
     return {"mesaj": "Kayıt veritabanına kaydedildi."}
+
+
+
+
+def vardiay_hesapla(giris_time: datetime, cikis_time: datetime) -> int:
+    # UTC'den Türkiye saatine çevir
+    from datetime import timezone, timedelta
+    turkey = timezone(timedelta(hours=3))
+    
+    giris_tr = giris_time.astimezone(turkey)
+    cikis_tr = cikis_time.astimezone(turkey)
+    
+    # Vardiya dilimleri (saat olarak)
+    # Sabah: 08:00-16:00 (shift=2)
+    # Akşam: 16:00-00:00 (shift=3)
+    # Gece:  00:00-08:00 (shift=1)
+    
+    calisma_suresi = (cikis_tr - giris_tr).total_seconds() / 3600
+    
+    # Her vardiyayla örtüşen saati hesapla
+    def ortusme_hesapla(giris, cikis, vardiya_baslangic, vardiya_bitis):
+        # Günü normalize et
+        from datetime import date
+        gun = giris.date()
+        
+        vb = giris.replace(
+            hour=vardiya_baslangic, minute=0, second=0, microsecond=0
+        )
+        vbt = giris.replace(
+            hour=vardiya_bitis, minute=0, second=0, microsecond=0
+        )
+        
+        # Gece vardiyası gece yarısını geçiyor
+        if vardiya_bitis <= vardiya_baslangic:
+            vbt = vbt + timedelta(days=1)
+        
+        # Örtüşme hesapla
+        baslangic = max(giris, vb)
+        bitis = min(cikis, vbt)
+        
+        if bitis > baslangic:
+            return (bitis - baslangic).total_seconds() / 3600
+        return 0
+    
+    sabah = ortusme_hesapla(giris_tr, cikis_tr, 8, 16)   # 08:00-16:00
+    aksam = ortusme_hesapla(giris_tr, cikis_tr, 16, 24)  # 16:00-00:00
+    gece  = ortusme_hesapla(giris_tr, cikis_tr, 0, 8)    # 00:00-08:00
+    
+    # En fazla örtüşen vardiyayı seç
+    maksimum = max(sabah, aksam, gece)
+    
+    if maksimum == sabah:
+        return 2  # Sabah
+    elif maksimum == aksam:
+        return 3  # Akşam
+    else:
+        return 1  # Gece
 
 
 
@@ -220,45 +345,6 @@ async def embedding_cikar(photo: UploadFile):
     # Normalize et
     embedding = embedding / np.linalg.norm(embedding)
     return {"found": True, "embedding": embedding.tolist()}
-
-
-"""@app.post("/recognize")
-async def yuz_tani(photo: UploadFile):
-    contents = await photo.read()
-    img = decode_image(contents)
-    if img is None:
-        return {"tanindi": False, "mesaj": "Görüntü okunamadı"}
-
-    faces = face_app.get(img)
-    if len(faces) == 0:
-        return {"tanindi": False, "mesaj": "Yüz tespit edilemedi"}
-
-    embedding = faces[0].embedding.astype(np.float32)
-    norm_e = np.linalg.norm(embedding)
-
-    if len(embedding_cache) == 0:
-        return {"tanindi": False, "mesaj": "Kayıtlı yüz yok"}
-
-    en_yuksek_skor = -1.0
-    en_yakin_kisi = None
-
-    for kayit in embedding_cache:
-        db_emb = kayit["embedding"]
-        # Cosine similarity
-        skor = float(np.dot(embedding, db_emb) / (norm_e * np.linalg.norm(db_emb)))
-        if skor > en_yuksek_skor:
-            en_yuksek_skor = skor
-            en_yakin_kisi = kayit
-
-    if en_yuksek_skor > 0.4:
-        return {
-            "tanindi": True,
-            "id": en_yakin_kisi["id"],
-            "full_name": en_yakin_kisi["full_name"],
-            "skor": round(en_yuksek_skor, 3)
-        }
-    else:
-        return {"tanindi": False, "mesaj": "Tanınamadı"}"""
 
 
 
