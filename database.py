@@ -3,7 +3,7 @@ from psycopg2 import pool
 from dotenv import load_dotenv
 import os
 import numpy as np
-from datatime import datetime
+from datetime import datetime
 
 load_dotenv()
 
