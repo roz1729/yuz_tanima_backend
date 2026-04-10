@@ -83,7 +83,7 @@ class EventType(str, Enum):
 
 class ShiftType(int, Enum):
     sabah = 2
-    ogle = 3
+    aksam = 3
     gece = 1
 
 
