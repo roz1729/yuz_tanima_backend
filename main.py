@@ -267,62 +267,53 @@ def kayit_ekle(veri: AttendanceRequest):
     return {"mesaj": "Kayıt veritabanına kaydedildi."}
 
 
-
-
 def vardiay_hesapla(giris_time: datetime, cikis_time: datetime) -> int:
-    # UTC'den Türkiye saatine çevir
-    from datetime import timezone, timedelta
     turkey = timezone(timedelta(hours=3))
+    
+    # timezone-aware değilse UTC olarak işaretle
+    if giris_time.tzinfo is None:
+        giris_time = giris_time.replace(tzinfo=timezone.utc)
+    if cikis_time.tzinfo is None:
+        cikis_time = cikis_time.replace(tzinfo=timezone.utc)
     
     giris_tr = giris_time.astimezone(turkey)
     cikis_tr = cikis_time.astimezone(turkey)
     
-    # Vardiya dilimleri (saat olarak)
-    # Sabah: 08:00-16:00 (shift=2)
-    # Akşam: 16:00-00:00 (shift=3)
-    # Gece:  00:00-08:00 (shift=1)
-    
-    calisma_suresi = (cikis_tr - giris_tr).total_seconds() / 3600
-    
-    # Her vardiyayla örtüşen saati hesapla
-    def ortusme_hesapla(giris, cikis, vardiya_baslangic, vardiya_bitis):
-        # Günü normalize et
-        from datetime import date
-        gun = giris.date()
+    def ortusme(g, c, v_baslangic, v_bitis):
+        # Vardiya başlangıç ve bitiş saatlerini aynı güne göre ayarla
+        vb = g.replace(hour=v_baslangic, minute=0, second=0, microsecond=0)
+        vbt = g.replace(hour=v_bitis, minute=0, second=0, microsecond=0)
         
-        vb = giris.replace(
-            hour=vardiya_baslangic, minute=0, second=0, microsecond=0
-        )
-        vbt = giris.replace(
-            hour=vardiya_bitis, minute=0, second=0, microsecond=0
-        )
+        # Gece yarısını geçen vardiyalar
+        if v_bitis <= v_baslangic:
+            vbt += timedelta(days=1)
         
-        # Gece vardiyası gece yarısını geçiyor
-        if vardiya_bitis <= vardiya_baslangic:
-            vbt = vbt + timedelta(days=1)
+        # Giriş saatten önce başlayan vardiya — bir gün geri al
+        if vb > g:
+            vb -= timedelta(days=1)
+            vbt -= timedelta(days=1)
         
-        # Örtüşme hesapla
-        baslangic = max(giris, vb)
-        bitis = min(cikis, vbt)
+        baslangic = max(g, vb)
+        bitis = min(c, vbt)
         
         if bitis > baslangic:
             return (bitis - baslangic).total_seconds() / 3600
-        return 0
+        return 0.0
     
-    sabah = ortusme_hesapla(giris_tr, cikis_tr, 8, 16)   # 08:00-16:00
-    aksam = ortusme_hesapla(giris_tr, cikis_tr, 16, 24)  # 16:00-00:00
-    gece  = ortusme_hesapla(giris_tr, cikis_tr, 0, 8)    # 00:00-08:00
+    sabah = ortusme(giris_tr, cikis_tr, 8, 16)
+    aksam = ortusme(giris_tr, cikis_tr, 16, 24)
+    gece  = ortusme(giris_tr, cikis_tr, 0, 8)
     
-    # En fazla örtüşen vardiyayı seç
     maksimum = max(sabah, aksam, gece)
     
-    if maksimum == sabah:
-        return 2  # Sabah
+    if maksimum == 0:
+        return 2  # Varsayılan sabah
+    elif maksimum == sabah:
+        return 2
     elif maksimum == aksam:
-        return 3  # Akşam
+        return 3
     else:
-        return 1  # Gece
-
+        return 1
 
 
 @app.get("/workers/embeddings")
