@@ -271,7 +271,28 @@ def vardiay_hesapla(giris_time: datetime, cikis_time: datetime) -> int:
     giris_tr = giris_time.astimezone(turkey)
     cikis_tr = cikis_time.astimezone(turkey)
 
-    def ortusme_saat(g, c, v_baslangic, v_bitis_offset_saat):
+
+
+
+
+    def ortusme_saat(g, c, v_baslangic):
+    toplam = 0
+
+    for gun_offset in [-1, 0, 1]:
+        vb = (g + timedelta(days=gun_offset)).replace(
+            hour=v_baslangic, minute=0, second=0, microsecond=0
+        )
+        vbt = vb + timedelta(hours=8)
+
+        bas = max(g, vb)
+        bit = min(c, vbt)
+
+        if bit > bas:
+            toplam += (bit - bas).total_seconds() / 3600
+
+    return toplam
+
+    """def ortusme_saat(g, c, v_baslangic, v_bitis_offset_saat):
         """
         v_baslangic: vardiya başlangıç saati (0-23)
         v_bitis_offset_saat: vardiya süresi (hep 8 saat)
@@ -289,7 +310,13 @@ def vardiay_hesapla(giris_time: datetime, cikis_time: datetime) -> int:
 
         if bitis > baslangic:
             return (bitis - baslangic).total_seconds() / 3600
-        return 0.0
+        return 0.0"""
+
+
+
+
+
+    
 
     # 1. Vardiya Gece:  00:00–08:00
     gece  = ortusme_saat(giris_tr, cikis_tr, 0, 8)
