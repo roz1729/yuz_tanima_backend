@@ -270,6 +270,8 @@ def vardiay_hesapla(giris_time: datetime, cikis_time: datetime) -> int:
     giris_tr = giris_time.astimezone(turkey)
     cikis_tr = cikis_time.astimezone(turkey)
 
+    print(f"[VARDIYA] Giriş TR: {giris_tr}, Çıkış TR: {cikis_tr}")
+
     def ortusme(v_baslangic):
         toplam = 0.0
         for gun_offset in [-1, 0, 1]:
@@ -283,9 +285,11 @@ def vardiay_hesapla(giris_time: datetime, cikis_time: datetime) -> int:
                 toplam += (bit - bas).total_seconds() / 3600
         return toplam
 
-    gece  = ortusme(0)   # 1. Vardiya: 00:00-08:00
-    sabah = ortusme(8)   # 2. Vardiya: 08:00-16:00
-    aksam = ortusme(16)  # 3. Vardiya: 16:00-00:00
+    gece  = ortusme(0)
+    sabah = ortusme(8)
+    aksam = ortusme(16)
+
+    print(f"[VARDIYA] Gece: {gece:.2f}, Sabah: {sabah:.2f}, Akşam: {aksam:.2f}")
 
     if gece >= sabah and gece >= aksam:
         return 1
