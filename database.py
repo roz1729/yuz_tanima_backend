@@ -3,7 +3,7 @@ from psycopg2 import pool
 from dotenv import load_dotenv
 import os
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timezone
 
 load_dotenv()
 
@@ -48,46 +48,34 @@ def get_workers():
         })
     return workers
 
-
-"""def save_attendance(user_id, event_type, shift, description):
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute(
-            'INSERT INTO "Attendances" ("UserId", "Type", "Shift", "Time", "IsLate", "LateReason") VALUES (%s, %s, %s, NOW(), %s, %s)',
-            (user_id, event_type, shift, False, description)
-        )
-        conn.commit()
-        cursor.close()
-    finally:
-        release_connection(conn)
-
-
-def save_attendance(user_id, event_type, shift, description, custom_time=None):
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        if custom_time:
-            cursor.execute(
-                'INSERT INTO "Attendances" ("UserId", "Type", "Shift", "Time", "IsLate", "LateReason") VALUES (%s, %s, %s, NOW(), %s, %s)',
-                (user_id, event_type, shift, custom_time, False, description)
-            )
-        else:
-            cursor.execute(
-                'INSERT INTO "Attendances" ("UserId", "Type", "Shift", "Time", "IsLate", "LateReason") '
-                'VALUES (%s, %s, %s, NOW(), %s, %s)',
-                (user_id, event_type, shift, False, description)
-            )
-        conn.commit()
-        cursor.close()
-    finally:
-        release_connection(conn)"""
-
-def save_attendance(user_id, event_type, shift, description, custom_time=None):
+"""def save_attendance(user_id, event_type, shift, description, custom_time=None):
     conn = get_connection()
     try:
         cursor = conn.cursor()
         zaman = custom_time if custom_time else datetime.utcnow()  # utcnow kullan
+        cursor.execute(
+            'INSERT INTO "Attendances" ("UserId", "Type", "Shift", "Time", "IsLate", "LateReason") '
+            'VALUES (%s, %s, %s, %s, %s, %s)',
+            (user_id, event_type, shift, zaman, False, description)
+        )
+        conn.commit()
+        cursor.close()
+    finally:
+        release_connection(conn)"""
+def save_attendance(user_id, event_type, shift, description, custom_time=None):
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        
+        if custom_time:
+            # Timezone-aware ise UTC'ye çevir, sonra naive yap
+            if custom_time.tzinfo is not None:
+                zaman = custom_time.astimezone(timezone.utc).replace(tzinfo=None)
+            else:
+                zaman = custom_time  # Zaten naive UTC kabul et
+        else:
+            zaman = datetime.utcnow()  # Naive UTC
+            
         cursor.execute(
             'INSERT INTO "Attendances" ("UserId", "Type", "Shift", "Time", "IsLate", "LateReason") '
             'VALUES (%s, %s, %s, %s, %s, %s)',
