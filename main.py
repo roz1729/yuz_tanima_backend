@@ -219,15 +219,7 @@ def kayit_ekle(veri: AttendanceRequest):
         if row:
             giris_id = row[0]
             giris_time = row[1]
-            """cikis_time = veri.custom_time if veri.custom_time else datetime.utcnow()"""
-            if veri.custom_time:
-                if veri.custom_time.tzinfo is not None:
-                    cikis_time = veri.custom_time.astimezone(timezone.utc).replace(tzinfo=None)
-                else: 
-                    cikis_time = veri.custom_time
-            else:
-                cikis_time = datetime.utcnow()
-            
+            cikis_time = veri.custom_time if veri.custom_time else datetime.utcnow()
             hesaplanan_shift = vardiay_hesapla(giris_time, cikis_time)
 
             conn = get_connection()
