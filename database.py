@@ -48,7 +48,7 @@ def get_workers():
         })
     return workers
 
-"""def save_attendance(user_id, event_type, shift, description, custom_time=None):
+def save_attendance(user_id, event_type, shift, description, custom_time=None):
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -61,30 +61,8 @@ def get_workers():
         conn.commit()
         cursor.close()
     finally:
-        release_connection(conn)"""
-def save_attendance(user_id, event_type, shift, description, custom_time=None):
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        
-        if custom_time:
-            # Timezone-aware ise UTC'ye çevir, sonra naive yap
-            if custom_time.tzinfo is not None:
-                zaman = custom_time.astimezone(timezone.utc).replace(tzinfo=None)
-            else:
-                zaman = custom_time  # Zaten naive UTC kabul et
-        else:
-            zaman = datetime.utcnow()  # Naive UTC
-            
-        cursor.execute(
-            'INSERT INTO "Attendances" ("UserId", "Type", "Shift", "Time", "IsLate", "LateReason") '
-            'VALUES (%s, %s, %s, %s, %s, %s)',
-            (user_id, event_type, shift, zaman, False, description)
-        )
-        conn.commit()
-        cursor.close()
-    finally:
         release_connection(conn)
+
 
 """def save_face_embedding(user_id, embedding):
     conn = get_connection()
