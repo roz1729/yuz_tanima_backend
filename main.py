@@ -257,20 +257,16 @@ def kayit_ekle(veri: AttendanceRequest):
             description=veri.description,
             custom_time=veri.custom_time
         )
-
     return {"mesaj": "Kayıt veritabanına kaydedildi."}
+
+
+
 def vardiay_hesapla(giris_time: datetime, cikis_time: datetime) -> int:
-    turkey = timezone(timedelta(hours=3))
+    # DB'deki zaman zaten Türkiye saatinde, dönüşüm yapma
+    giris_tr = giris_time.replace(tzinfo=None)
+    cikis_tr = cikis_time.replace(tzinfo=None)
 
-    if giris_time.tzinfo is None:
-        giris_time = giris_time.replace(tzinfo=timezone.utc)
-    if cikis_time.tzinfo is None:
-        cikis_time = cikis_time.replace(tzinfo=timezone.utc)
-
-    giris_tr = giris_time.astimezone(turkey)
-    cikis_tr = cikis_time.astimezone(turkey)
-
-    print(f"[VARDIYA] Giriş TR: {giris_tr}, Çıkış TR: {cikis_tr}")
+    print(f"[VARDIYA] Giriş: {giris_tr}, Çıkış: {cikis_tr}")
 
     def ortusme(v_baslangic):
         toplam = 0.0
