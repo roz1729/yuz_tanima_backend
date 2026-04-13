@@ -201,6 +201,9 @@ def kayit_ekle(veri: AttendanceRequest):
 
 @app.post("/attendance")
 def kayit_ekle(veri: AttendanceRequest):
+    print(f"[DEBUG] Gelen custom_time: {veri.custom_time}")
+    print(f"[DEBUG] tzinfo: {veri.custom_time.tzinfo if veri.custom_time else 'None'}")
+    print(f"[DEBUG] utcnow: {datetime.utcnow()}")
     if veri.event_type == "cikis":
         conn = get_connection()
         try:
