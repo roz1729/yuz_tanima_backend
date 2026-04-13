@@ -259,7 +259,6 @@ def kayit_ekle(veri: AttendanceRequest):
         )
 
     return {"mesaj": "Kayıt veritabanına kaydedildi."}
-
 def vardiay_hesapla(giris_time: datetime, cikis_time: datetime) -> int:
     turkey = timezone(timedelta(hours=3))
 
@@ -271,65 +270,29 @@ def vardiay_hesapla(giris_time: datetime, cikis_time: datetime) -> int:
     giris_tr = giris_time.astimezone(turkey)
     cikis_tr = cikis_time.astimezone(turkey)
 
+    def ortusme(v_baslangic):
+        toplam = 0.0
+        for gun_offset in [-1, 0, 1]:
+            vb = giris_tr.replace(
+                hour=v_baslangic, minute=0, second=0, microsecond=0
+            ) + timedelta(days=gun_offset)
+            vbt = vb + timedelta(hours=8)
+            bas = max(giris_tr, vb)
+            bit = min(cikis_tr, vbt)
+            if bit > bas:
+                toplam += (bit - bas).total_seconds() / 3600
+        return toplam
 
-
-
-
-    def ortusme_saat(g, c, v_baslangic):
-    toplam = 0
-
-    for gun_offset in [-1, 0, 1]:
-        vb = (g + timedelta(days=gun_offset)).replace(
-            hour=v_baslangic, minute=0, second=0, microsecond=0
-        )
-        vbt = vb + timedelta(hours=8)
-
-        bas = max(g, vb)
-        bit = min(c, vbt)
-
-        if bit > bas:
-            toplam += (bit - bas).total_seconds() / 3600
-
-    return toplam
-
-    """def ortusme_saat(g, c, v_baslangic, v_bitis_offset_saat):
-        """
-     
-        """
-        vb = g.replace(hour=v_baslangic, minute=0, second=0, microsecond=0)
-        vbt = vb + timedelta(hours=8)
-
-        # Giriş vardiya başlangıcından önceyse bir gün geri al
-        if vb > g:
-            vb -= timedelta(days=1)
-            vbt -= timedelta(days=1)
-
-        baslangic = max(g, vb)
-        bitis = min(c, vbt)
-
-        if bitis > baslangic:
-            return (bitis - baslangic).total_seconds() / 3600
-        return 0.0"""
-
-
-
-
-
-    
-
-    # 1. Vardiya Gece:  00:00–08:00
-    gece  = ortusme_saat(giris_tr, cikis_tr, 0, 8)
-    # 2. Vardiya Sabah: 08:00–16:00
-    sabah = ortusme_saat(giris_tr, cikis_tr, 8, 16)
-    # 3. Vardiya Akşam: 16:00–00:00
-    aksam = ortusme_saat(giris_tr, cikis_tr, 16, 0)
+    gece  = ortusme(0)   # 1. Vardiya: 00:00-08:00
+    sabah = ortusme(8)   # 2. Vardiya: 08:00-16:00
+    aksam = ortusme(16)  # 3. Vardiya: 16:00-00:00
 
     if gece >= sabah and gece >= aksam:
-        return 1  # Gece
+        return 1
     elif sabah >= gece and sabah >= aksam:
-        return 2  # Sabah
+        return 2
     else:
-        return 3  # Akşam
+        return 3
 
 @app.get("/workers/embeddings")
 def isci_embedding_listesi():
