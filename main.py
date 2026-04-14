@@ -263,8 +263,49 @@ def kayit_ekle(veri: AttendanceRequest):
     return {"mesaj": "Kayıt veritabanına kaydedildi."}
 
 
-
 def vardiay_hesapla(giris_time: datetime, cikis_time: datetime) -> int:
+    turkey = timezone(timedelta(hours=3))
+
+    # UTC'den Türkiye saatine çevir
+    if giris_time.tzinfo is None:
+        giris_time = giris_time.replace(tzinfo=timezone.utc)
+    if cikis_time.tzinfo is None:
+        cikis_time = cikis_time.replace(tzinfo=timezone.utc)
+
+    giris_tr = giris_time.astimezone(turkey).replace(tzinfo=None)
+    cikis_tr = cikis_time.astimezone(turkey).replace(tzinfo=None)
+
+    print(f"[VARDIYA] Giriş TR: {giris_tr}, Çıkış TR: {cikis_tr}")
+
+    def ortusme(v_baslangic):
+        toplam = 0.0
+        for gun_offset in [-1, 0, 1]:
+            vb = giris_tr.replace(
+                hour=v_baslangic, minute=0, second=0, microsecond=0
+            ) + timedelta(days=gun_offset)
+            vbt = vb + timedelta(hours=8)
+            bas = max(giris_tr, vb)
+            bit = min(cikis_tr, vbt)
+            if bit > bas:
+                toplam += (bit - bas).total_seconds() / 3600
+        return toplam
+
+    gece  = ortusme(0)   # 00:00-08:00 TR
+    sabah = ortusme(8)   # 08:00-16:00 TR
+    aksam = ortusme(16)  # 16:00-00:00 TR
+
+    print(f"[VARDIYA] Gece: {gece:.2f}, Sabah: {sabah:.2f}, Akşam: {aksam:.2f}")
+
+    if gece >= sabah and gece >= aksam:
+        return 1
+    elif sabah >= gece and sabah >= aksam:
+        return 2
+    else:
+        return 3
+
+
+
+"""def vardiay_hesapla(giris_time: datetime, cikis_time: datetime) -> int:
     # DB'deki zaman zaten Türkiye saatinde, dönüşüm yapma
     giris_tr = giris_time.replace(tzinfo=None)
     cikis_tr = cikis_time.replace(tzinfo=None)
@@ -295,7 +336,13 @@ def vardiay_hesapla(giris_time: datetime, cikis_time: datetime) -> int:
     elif sabah >= gece and sabah >= aksam:
         return 2
     else:
-        return 3
+        return 3"""
+
+
+
+
+
+
 
 @app.get("/workers/embeddings")
 def isci_embedding_listesi():
