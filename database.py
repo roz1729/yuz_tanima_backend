@@ -8,13 +8,12 @@ from datetime import datetime, timezone
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-
 connection_pool = None
 
 
 def init_pool():
     global connection_pool
-    connection_pool = pool.SimpleConnectionPool(1, 10, DATABASE_URL)
+    connection_pool = pool.SimpleConnectionPool(2, 20, DATABASE_URL)  # max 20'ye çıkardık
     print("Bağlantı havuzu oluşturuldu.")
 
 
@@ -39,20 +38,14 @@ def get_workers():
     finally:
         release_connection(conn)
 
-    workers = []
-    for row in rows:
-        workers.append({
-            "id": row[0],
-            "full_name": row[1],
-            "username": row[2]
-        })
-    return workers
+    return [{"id": r[0], "full_name": r[1], "username": r[2]} for r in rows]
+
 
 def save_attendance(user_id, event_type, shift, description, custom_time=None):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        zaman = custom_time if custom_time else datetime.utcnow()  # utcnow kullan
+        zaman = custom_time if custom_time else datetime.utcnow()
         cursor.execute(
             'INSERT INTO "Attendances" ("UserId", "Type", "Shift", "Time", "IsLate", "LateReason") '
             'VALUES (%s, %s, %s, %s, %s, %s)',
@@ -61,35 +54,23 @@ def save_attendance(user_id, event_type, shift, description, custom_time=None):
         conn.commit()
         cursor.close()
     finally:
-        release_connection(conn)
+        release_connection(conn)  # ← her zaman geri döndür
 
 
-"""def save_face_embedding(user_id, embedding):
+def save_face_embedding(user_id, embedding):
     conn = get_connection()
-    try:
+    try:                          # ← try/finally ekledik
         cursor = conn.cursor()
+        norm = np.linalg.norm(embedding)
+        normalized = (embedding / norm).tolist()
         cursor.execute(
             'UPDATE "Users" SET "FaceEmbedding" = %s WHERE "Id" = %s',
-            (embedding.tolist(), user_id)
+            (normalized, user_id)
         )
         conn.commit()
         cursor.close()
     finally:
-        release_connection(conn)"""
-
-def save_face_embedding(user_id, embedding):
-    conn = get_connection()
-    cursor = conn.cursor()
-    # Normalize et
-    norm = np.linalg.norm(embedding)
-    normalized = (embedding / norm).tolist()
-    cursor.execute(
-        'UPDATE "Users" SET "FaceEmbedding" = %s WHERE "Id" = %s',
-        (normalized, user_id)
-    )
-    conn.commit()
-    cursor.close()
-    conn.close()
+        release_connection(conn)  # ← conn.close() değil, pool'a geri ver
 
 
 def get_all_embeddings():
@@ -105,11 +86,4 @@ def get_all_embeddings():
     finally:
         release_connection(conn)
 
-    result = []
-    for row in rows:
-        result.append({
-            "id": row[0],
-            "full_name": row[1],
-            "embedding": row[2]
-        })
-    return result
+    return [{"id": r[0], "full_name": r[1], "embedding": r[2]} for r in rows]
