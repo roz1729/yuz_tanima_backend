@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL")   
 connection_pool = None
 
 
