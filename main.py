@@ -233,7 +233,7 @@ def kayit_ekle(veri: AttendanceRequest):
             if not has_production_record_since(veri.worker_id, giris_time):
                 raise HTTPException(
                     status_code=400,
-                    detail="Bu vardiya boyunca hiçbir üretim kaydınız yok. Çıkış yapmadan önce üretim formunu doldurmalısınız."
+                    detail="Bu vardiya boyunca hiçbir üretim kaydınız yok. Lütfen çıkış yapmadan önce 'Üretim Takip Formunu' doldurun."
                 )
 
             cikis_time = veri.custom_time if veri.custom_time else datetime.utcnow()
