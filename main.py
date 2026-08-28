@@ -1,7 +1,12 @@
-from fastapi import FastAPI, UploadFile
+
 from pydantic import BaseModel
 from enum import Enum
-from database import get_connection, get_workers, save_attendance, save_face_embedding, get_all_embeddings, init_pool, release_connection
+from fastapi import FastAPI, UploadFile, HTTPException
+from database import (
+    get_connection, get_workers, save_attendance, save_face_embedding,
+    get_all_embeddings, init_pool, release_connection,
+    has_production_record_since
+)
 import numpy as np
 import cv2
 from insightface.app import FaceAnalysis
@@ -199,6 +204,7 @@ def kayit_ekle(veri: AttendanceRequest):
     return {"mesaj": "Kayıt veritabanına kaydedildi."}"""
 
 
+
 @app.post("/attendance")
 def kayit_ekle(veri: AttendanceRequest):
     print(f"[DEBUG] Gelen custom_time: {veri.custom_time}")
@@ -222,6 +228,14 @@ def kayit_ekle(veri: AttendanceRequest):
         if row:
             giris_id = row[0]
             giris_time = row[1]
+
+            # ── YENİ: vardiya boyunca üretim kaydı var mı kontrolü ──
+            if not has_production_record_since(veri.worker_id, giris_time):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Bu vardiya boyunca hiçbir üretim kaydınız yok. Çıkış yapmadan önce üretim formunu doldurmalısınız."
+                )
+
             cikis_time = veri.custom_time if veri.custom_time else datetime.utcnow()
             hesaplanan_shift = vardiay_hesapla(giris_time, cikis_time)
 
@@ -261,6 +275,9 @@ def kayit_ekle(veri: AttendanceRequest):
             custom_time=veri.custom_time
         )
     return {"mesaj": "Kayıt veritabanına kaydedildi."}
+
+
+
 
 
 def vardiay_hesapla(giris_time: datetime, cikis_time: datetime) -> int:
