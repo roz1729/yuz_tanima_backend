@@ -72,17 +72,27 @@ def save_face_embedding(user_id, embedding):
     finally:
         release_connection(conn)  # ← conn.close() değil, pool'a geri ver
 
+
+
+
+
+
+
+
 def get_last_attendance(user_id):
     """Kullanıcının en son giriş/çıkış kaydını döner. Kayıt yoksa None."""
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        'SELECT "Type", "Time" FROM "Attendances" WHERE "UserId" = %s ORDER BY "Time" DESC LIMIT 1',
-        (user_id,)
-    )
-    row = cursor.fetchone()
-    cursor.close()
-    conn.close()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            'SELECT "Type", "Time" FROM "Attendances" WHERE "UserId" = %s ORDER BY "Time" DESC LIMIT 1',
+            (user_id,)
+        )
+        row = cursor.fetchone()
+        cursor.close()
+    finally:
+        release_connection(conn)
+
     if row is None:
         return None
     return {"type": row[0], "time": row[1]}
@@ -91,15 +101,21 @@ def get_last_attendance(user_id):
 def has_production_record_since(user_id, since_time):
     """Verilen zamandan (giriş anından) bu yana en az 1 üretim formu (FormRow) girilmiş mi?"""
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        'SELECT COUNT(*) FROM "FormRows" WHERE "WorkerId" = %s AND "CreatedAt" >= %s',
-        (user_id, since_time)
-    )
-    count = cursor.fetchone()[0]
-    cursor.close()
-    conn.close()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            'SELECT COUNT(*) FROM "FormRows" WHERE "WorkerId" = %s AND "CreatedAt" >= %s',
+            (user_id, since_time)
+        )
+        count = cursor.fetchone()[0]
+        cursor.close()
+    finally:
+        release_connection(conn)
+
     return count > 0
+
+
+
 def get_all_embeddings():
     conn = get_connection()
     try:
