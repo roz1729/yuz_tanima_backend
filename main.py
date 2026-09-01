@@ -256,7 +256,8 @@ def kayit_ekle(veri: AttendanceRequest):
                 event_type=veri.event_type,
                 shift=hesaplanan_shift,
                 description=veri.description,
-                custom_time=veri.custom_time
+                custom_time=veri.custom_time,
+                 shift_change=veri.shift_change   # ← YENİ (3 çağrıya da ekle)
             )
         else:
             save_attendance(
@@ -264,7 +265,8 @@ def kayit_ekle(veri: AttendanceRequest):
                 event_type=veri.event_type,
                 shift=veri.shift,
                 description=veri.description,
-                custom_time=veri.custom_time
+                custom_time=veri.custom_time,
+                 shift_change=veri.shift_change   # ← YENİ (3 çağrıya da ekle)
             )
     else:
         save_attendance(
@@ -272,7 +274,8 @@ def kayit_ekle(veri: AttendanceRequest):
             event_type=veri.event_type,
             shift=veri.shift,
             description=veri.description,
-            custom_time=veri.custom_time
+            custom_time=veri.custom_time,
+             shift_change=veri.shift_change   # ← YENİ (3 çağrıya da ekle)
         )
     return {"mesaj": "Kayıt veritabanına kaydedildi."}
 
