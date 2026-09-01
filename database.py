@@ -40,21 +40,20 @@ def get_workers():
 
     return [{"id": r[0], "full_name": r[1], "username": r[2]} for r in rows]
 
-
-def save_attendance(user_id, event_type, shift, description, custom_time=None):
+def save_attendance(user_id, event_type, shift, description, custom_time=None, shift_change=False):
     conn = get_connection()
     try:
         cursor = conn.cursor()
         zaman = custom_time if custom_time else datetime.utcnow()
         cursor.execute(
-            'INSERT INTO "Attendances" ("UserId", "Type", "Shift", "Time", "IsLate", "LateReason") '
-            'VALUES (%s, %s, %s, %s, %s, %s)',
-            (user_id, event_type, shift, zaman, False, description)
+            'INSERT INTO "Attendances" ("UserId", "Type", "Shift", "Time", "IsLate", "LateReason", "IsShiftChange") '
+            'VALUES (%s, %s, %s, %s, %s, %s, %s)',
+            (user_id, event_type, shift, zaman, False, description, shift_change)
         )
         conn.commit()
         cursor.close()
     finally:
-        release_connection(conn)  # ← her zaman geri döndür
+        release_connection(conn)
 
 
 def save_face_embedding(user_id, embedding):
