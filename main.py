@@ -98,7 +98,7 @@ class AttendanceRequest(BaseModel):
     shift: ShiftType
     description: str = None
     custom_time: Optional[datetime] = None  # test için
-
+    shift_change: bool = False   # ← YENİ
 
 # ─── Yardımcı fonksiyon ───────────────────────────────────────────────────────
 
