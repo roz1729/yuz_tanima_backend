@@ -28,14 +28,6 @@ faiss_index = None
 id_map = []
 
 
-"""def load_embedding_cache():
-    global embedding_cache
-    kayitlar = get_all_embeddings()
-    for kayit in kayitlar:
-        kayit["embedding"] = np.array(kayit["embedding"], dtype=np.float32)
-    embedding_cache = kayitlar
-    print(f"[Cache] {len(embedding_cache)} kişi yüklendi.")"""
-
 def load_embedding_cache():
     global embedding_cache, faiss_index, id_map
 
@@ -99,6 +91,7 @@ class AttendanceRequest(BaseModel):
     description: str = None
     custom_time: Optional[datetime] = None  # test için
     shift_change: bool = False   # ← YENİ
+    force_checkout: bool = False 
 
 # ─── Yardımcı fonksiyon ───────────────────────────────────────────────────────
 
@@ -192,17 +185,6 @@ def isci_listesi():
     return {"workers": get_workers()}
 
 
-"""@app.post("/attendance")
-def kayit_ekle(veri: AttendanceRequest):
-    save_attendance(
-        user_id=veri.worker_id,
-        event_type=veri.event_type,
-        shift=veri.shift,
-        description=veri.description,
-        custom_time=veri.custom_time
-    )
-    return {"mesaj": "Kayıt veritabanına kaydedildi."}"""
-
 
 
 @app.post("/attendance")
@@ -229,12 +211,17 @@ def kayit_ekle(veri: AttendanceRequest):
             giris_id = row[0]
             giris_time = row[1]
 
-            # ── YENİ: vardiya boyunca üretim kaydı var mı kontrolü ──
             if not has_production_record_since(veri.worker_id, giris_time):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Bu vardiya boyunca hiçbir üretim kaydınız yok. Lütfen çıkış yapmadan önce 'Üretim Takip Formunu' doldurun."
-                )
+                if not veri.force_checkout:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Bu vardiya boyunca hiçbir üretim kaydınız yok. Lütfen çıkış yapmadan önce 'Üretim Takip Formunu' doldurun."
+                  )
+                else:
+                    # Zorla çıkışı işaretle — yönetici görebilsin
+                    note = "[ZORLA ÇIKIŞ - üretim kaydı yok]"
+                    veri.description = f"{veri.description} {note}".strip() if veri.description else note
+                    print(f"[UYARI] worker_id={veri.worker_id} üretim kaydı olmadan zorla çıkış yaptı.")
 
             cikis_time = veri.custom_time if veri.custom_time else datetime.utcnow()
             hesaplanan_shift = vardiay_hesapla(giris_time, cikis_time)
@@ -324,43 +311,6 @@ def vardiay_hesapla(giris_time: datetime, cikis_time: datetime) -> int:
     }
 
     return max(vardiyalar, key=vardiyalar.get)
-
-
-
-"""def vardiay_hesapla(giris_time: datetime, cikis_time: datetime) -> int:
-    # DB'deki zaman zaten Türkiye saatinde, dönüşüm yapma
-    giris_tr = giris_time.replace(tzinfo=None)
-    cikis_tr = cikis_time.replace(tzinfo=None)
-
-    print(f"[VARDIYA] Giriş: {giris_tr}, Çıkış: {cikis_tr}")
-
-    def ortusme(v_baslangic):
-        toplam = 0.0
-        for gun_offset in [-1, 0, 1]:
-            vb = giris_tr.replace(
-                hour=v_baslangic, minute=0, second=0, microsecond=0
-            ) + timedelta(days=gun_offset)
-            vbt = vb + timedelta(hours=8)
-            bas = max(giris_tr, vb)
-            bit = min(cikis_tr, vbt)
-            if bit > bas:
-                toplam += (bit - bas).total_seconds() / 3600
-        return toplam
-
-    gece  = ortusme(0)
-    sabah = ortusme(8)
-    aksam = ortusme(16)
-
-    print(f"[VARDIYA] Gece: {gece:.2f}, Sabah: {sabah:.2f}, Akşam: {aksam:.2f}")
-
-    if gece >= sabah and gece >= aksam:
-        return 1
-    elif sabah >= gece and sabah >= aksam:
-        return 2
-    else:
-        return 3"""
-
-
 
 
 
